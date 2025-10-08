@@ -1,0 +1,1313 @@
+<!doctype html>
+<!--
+  Obfuscatr — single-file offline JS obfuscator
+  by Trincio
+  - Drag & drop / file input for library (index.browser.js) and one or more JS files to obfuscate
+  - Dual language (Italian / English)
+  - Worker created dynamically from a Blob -> no separate worker file required
+  - Minimal, commented and ready for publishing on GitHub / Pages
+-->
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Obfuscatr — Local JS obfuscator (offline) by Trincio</title>
+<style>
+:root {
+  --bg: #f7f8fb;
+  --panel: #ffffff;
+  --muted: #666;
+  --accent: #0b63d6;
+  --radius: 0.6rem;
+}
+
+html {
+  font-size: 100%;
+}
+@media (min-width: 1600px) {
+  html { font-size: 112.5%; }
+}
+@media (max-width: 1100px) {
+  html { font-size: 93.75%; }
+}
+
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial;
+  margin: 2rem;
+  background: var(--bg);
+  color: #111;
+  line-height: 1.4;
+}
+
+.wrap {
+  max-width: 70rem;
+  margin: 0 auto;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.logo-area {
+  flex-shrink: 0;
+}
+
+.logo-area img {
+  height: 60px;
+  width: auto;
+}
+
+header .title-group {
+  flex: 1;
+}
+
+header h1 {
+  font-size: 1.25rem;
+  margin: 0 0 0.2rem 0;
+}
+
+header .subtitle {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: normal;
+}
+
+header .controls {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  margin-left: auto;
+}
+
+.lang {
+  font-size: 0.85rem;
+}
+
+.info-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.info-btn:hover {
+  background: #094eb0;
+  transform: scale(1.1);
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius);
+  box-shadow: 0 0.5rem 1.25rem rgba(10, 20, 40, 0.04);
+  margin-bottom: 1.25rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin: 0.6rem 0;
+}
+
+label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.dropzone {
+  border: 0.15rem dashed rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #fff, #fbfdff);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.dropzone.dragover {
+  border-color: var(--accent);
+  box-shadow: 0 0.25rem 0.8rem rgba(11, 99, 214, 0.15);
+}
+
+textarea {
+  width: 100%;
+  min-height: 12rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+  font-size: 0.9rem;
+  padding: 0.6rem 0.8rem;
+  box-sizing: border-box;
+  resize: vertical;
+  border-radius: var(--radius);
+  border: 1px solid #e6eef9;
+}
+
+button {
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius);
+  border: 1px solid #cfdcf7;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.1s ease;
+}
+button:hover:not(:disabled) {
+  background: #f1f6ff;
+}
+button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+select {
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+
+.files-list {
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.small {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.right {
+  margin-left: auto;
+}
+
+.hr {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #eee, transparent);
+  margin: 0.8rem 0;
+  border-radius: 0.2rem;
+}
+
+.file-pill {
+  display: inline-block;
+  background: #f0f8ff;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  margin: 0.2rem;
+  border: 1px solid #dceefe;
+  font-size: 0.8rem;
+}
+
+@keyframes pulse {
+  0%, 100% { background-color: #f0f8ff; }
+  50% { background-color: #d8ecff; }
+}
+.file-pill.processing {
+  animation: pulse 1s infinite;
+  border-color: #0b63d6;
+  color: #0b63d6;
+}
+.file-pill.done {
+  background: #e6f8e6;
+  border-color: #53b053;
+  color: #226622;
+}
+.file-pill.error {
+  background: #ffecec;
+  border-color: #cc3333;
+  color: #a00;
+}
+
+.loader {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 0.15rem solid #cce1ff;
+  border-top-color: #0b63d6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-left: 0.4rem;
+}
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.result-block {
+  margin-top: 0.6rem;
+}
+.result-textarea {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  min-height: 8rem;
+  padding: 0.4rem;
+  border-radius: 0.4rem;
+  border: 1px solid #dceefe;
+  background: #fafcff;
+  box-sizing: border-box;
+}
+.copy-btn {
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.copy-btn:hover,
+a.download-link:hover {
+  background-color: #e6fbe6;
+  border-color: #53b053;
+  color: #1b5e1b;
+}
+
+.result-textarea.highlight {
+  background-color: #e9fbe9;
+  transition: background-color 0.2s ease;
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  margin-left: 0.4rem;
+  background-color: #ccc;
+}
+.status-indicator.ok {
+  background-color: #3cb043;
+}
+.status-indicator.error {
+  background-color: #cc3333;
+}
+
+.panel.collapsed {
+  padding: 0.8rem 1rem;
+  background: #f8fff8;
+  border-left: 0.25rem solid #3cb043;
+  cursor: pointer;
+}
+.panel.collapsed:hover {
+  background: #effff0;
+}
+.panel.collapsed .small {
+  color: #226622;
+}
+
+/* Debug section - collapsible */
+.debug-section {
+  margin-top: 1.5rem;
+  border-top: 2px solid #eee;
+  padding-top: 1rem;
+}
+
+.debug-toggle {
+  cursor: pointer;
+  user-select: none;
+  display: inline-block;
+  padding: 0.5rem 0.8rem;
+  background: #f5f5f5;
+  border-radius: 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background 0.2s ease;
+  border: 1px solid #ddd;
+}
+
+.debug-toggle:hover {
+  background: #e8e8e8;
+}
+
+.debug-toggle::before {
+  content: '▶';
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform 0.2s ease;
+}
+
+.debug-toggle.open::before {
+  transform: rotate(90deg);
+}
+
+.debug-content {
+  display: none;
+  margin-top: 1rem;
+}
+
+.debug-content.open {
+  display: block;
+}
+
+pre {
+  background: #0b0b0d;
+  color: #e6e6e6;
+  padding: 0.8rem;
+  border-radius: var(--radius);
+  max-height: 25rem;
+  overflow: auto;
+  font-size: 0.85rem;
+  margin: 0.8rem 0;
+}
+
+/* Modal styles */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal-content {
+  background: white;
+  border-radius: var(--radius);
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 2rem;
+  position: relative;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.3);
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #666;
+}
+
+.modal-close:hover {
+  background: #f0f0f0;
+  color: #000;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  color: var(--accent);
+}
+
+.modal-content p {
+  line-height: 1.6;
+  margin: 1rem 0;
+}
+
+.modal-content ul {
+  line-height: 1.8;
+  margin: 1rem 0;
+}
+
+@media (min-width: 1600px) {
+  .wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 1.5rem;
+  }
+  header {
+    grid-column: 1 / span 2;
+  }
+  footer {
+    grid-column: 1 / span 2;
+  }
+  section.panel:nth-of-type(1) {
+    grid-column: 1;
+  }
+  section.panel:nth-of-type(2) {
+    grid-column: 2;
+  }
+  section.panel:nth-of-type(3) {
+    grid-column: 1 / span 2;
+  }
+}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo-area">
+        <!-- PLACEHOLDER PER IL LOGO - inserisci qui il tuo base64 -->
+        <img src="data:image/png;base64,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" alt="Obfuscatr Logo" />
+      </div>
+      <div class="title-group">
+        <h1 id="title">Obfuscatr</h1>
+        <div class="subtitle">by Trincio</div>
+      </div>
+      <div class="controls">
+        <div class="lang">
+          <label for="langSel" class="small">Lang</label>
+          <select id="langSel" aria-label="language">
+            <option value="it">Italiano</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <button class="info-btn" id="infoBtn" title="Info">i</button>
+      </div>
+    </header>
+
+    <!-- Modal informativo -->
+    <div class="modal-overlay" id="infoModal">
+      <div class="modal-content">
+        <button class="modal-close" id="modalClose">×</button>
+        <h2 data-i18n="modal_title">Cos'è Obfuscatr?</h2>
+        <div id="modalBody">
+          <p data-i18n="modal_intro">
+            Obfuscatr è un tool completamente standalone per offuscare codice JavaScript direttamente nel browser, senza necessità di Python, Node.js o server HTTP.
+          </p>
+          <p data-i18n="modal_philosophy">
+            <strong>La mia filosofia:</strong> Credo fermamente che gli strumenti di sviluppo debbano essere accessibili a tutti, senza dipendenze complesse. Con un semplice file HTML e un browser moderno puoi fare tutto ciò che serve, in locale e in sicurezza.
+          </p>
+          <p data-i18n="modal_advantages"><strong>Vantaggi:</strong></p>
+          <ul>
+            <li data-i18n="modal_adv1">✅ Completamente offline - nessuna connessione internet necessaria</li>
+            <li data-i18n="modal_adv2">✅ Privacy totale - il tuo codice non lascia mai il tuo computer</li>
+            <li data-i18n="modal_adv3">✅ Zero installazioni - basta aprire il file HTML</li>
+            <li data-i18n="modal_adv4">✅ Cross-platform - funziona su Windows, Mac, Linux</li>
+            <li data-i18n="modal_adv5">✅ Open source e personalizzabile</li>
+          </ul>
+          <p data-i18n="modal_usage">
+            <strong>Come usarlo:</strong> Scarica la libreria javascript-obfuscator da CDN o dal repository ufficiale, caricala nell'interfaccia, e inizia subito a offuscare i tuoi file JavaScript. Tutto avviene nel browser grazie ai Web Workers.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIB LOADER PANEL -->
+    <section class="panel" id="libPanel" aria-labelledby="libTitle">
+      <div class="row">
+        <div>
+          <label id="libTitle"><span data-i18n="step1">1) Carica il bundle della libreria</span></label>
+          <div class="small muted" data-i18n="lib_hint">Suggerimento: usa la build browser/umd (es. dist/index.browser.js)</div>
+        </div>
+        <div class="right">
+          <input id="libFile" type="file" accept=".js" style="display:none" />
+          <button id="libPickBtn" data-i18n="select_bundle">Seleziona bundle</button>
+        </div>
+      </div>
+
+      <div id="libDrop" class="dropzone" data-i18n-title="drop_lib">
+        <div id="libInfo" class="small muted" data-i18n="lib_drop_info">Trascina o clicca per scegliere il bundle JS (index.browser.js)</div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="row">
+        <button id="initBtn" disabled data-i18n="initialize">Inizializza</button>
+        <div class="files-list" id="libName"></div>
+        <div class="right small muted" id="libStatus" data-i18n="status_not_init">status: non inizializzato</div>
+      </div>
+
+      <div class="small muted" data-i18n="detection_note">
+        Se la detection fallisce, premi Debug e copia il JSON; puoi analizzarlo tu stesso se sei un professionista IT o avvalerti dell'opinione di un AI-LLM.
+      </div>
+    </section>
+
+    <!-- SOURCE FILES PANEL -->
+    <section class="panel" aria-labelledby="srcTitle">
+      <div class="row">
+        <div>
+          <label id="srcTitle"><span data-i18n="step2">2) Carica file JS da offuscare</span></label>
+          <div class="small muted" data-i18n="src_hint">Puoi trascinare più file; verranno offuscati uno per uno.</div>
+        </div>
+        <div class="right">
+          <input id="srcFiles" type="file" accept=".js" multiple style="display:none" />
+          <button id="srcPickBtn" data-i18n="select_files">Seleziona file JS</button>
+        </div>
+      </div>
+
+      <div id="srcDrop" class="dropzone" data-i18n-title="drop_src">
+        <div id="srcInfo" class="small muted" data-i18n="src_drop_info">Trascina file JS qui o clicca per selezionarli. Puoi anche incollare codice sotto.</div>
+      </div>
+
+      <div style="margin-top:10px">
+        <label class="small" data-i18n="paste_label">Oppure incolla qui il codice JS (sarà trattato come file singolo)</label>
+        <textarea id="srcText" data-i18n-placeholder="paste_placeholder">// incolla JS qui (opzionale)</textarea>
+      </div>
+
+      <div class="row" style="margin-top:6px;align-items:center">
+        <label data-i18n="preset_label">Preset</label>
+        <select id="preset">
+          <option value="default">default</option>
+          <option value="safe">safe</option>
+          <option value="aggressive">aggressive</option>
+        </select>
+        <div class="right">
+          <button id="obfBtn" disabled data-i18n="obfuscate">Offusca</button>
+          <button id="cancelBtn" disabled data-i18n="cancel">Annulla</button>
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <div id="filesList" class="small"></div>
+      </div>
+    </section>
+
+    <!-- OUTPUT PANEL -->
+    <section class="panel">
+      <div class="row">
+        <label data-i18n="output_label">Output / Risultati</label>
+        <div id="status" class="small muted right">idle</div>
+      </div>
+
+      <div class="small muted" data-i18n="output_hint">I risultati offuscati appariranno qui sotto. Potrai copiarli o scaricarli.</div>
+
+      <div id="downloadLinks" style="margin-top:1rem"></div>
+
+      <!-- Debug section - collapsible -->
+      <div class="debug-section">
+        <div class="debug-toggle" id="debugToggle">
+          <span data-i18n="debug_advanced">Debug avanzato (per sviluppatori)</span>
+        </div>
+        <div class="debug-content" id="debugContent">
+          <div class="small muted" data-i18n="debug_desc">Strumenti di debug per analizzare come la libreria viene caricata nel worker</div>
+          <div class="row" style="margin-top:0.8rem">
+            <button id="debugBtn" disabled data-i18n="debug_worker">Debug Worker</button>
+            <button id="copyDebugBtn" disabled data-i18n="copy_debug">Copia JSON</button>
+            <button id="downloadDebugBtn" disabled data-i18n="download_debug">Scarica JSON</button>
+          </div>
+          <pre id="debugOut">No debug info yet.</pre>
+        </div>
+      </div>
+    </section>
+
+    <footer class="small muted" style="text-align:center;margin-top:12px">
+      <span data-i18n="footer">Licensed as MIT — ready for GitHub/Codeberg</span>
+    </footer>
+  </div>
+
+<script>
+/*
+  Obfuscatr — Single-file web app
+  by Trincio
+*/
+
+/* Localization texts (IT/EN) */
+const I18N = {
+  it: {
+    title: "Obfuscatr",
+    step1: "1) Carica il bundle della libreria",
+    step2: "2) Carica file JS da offuscare",
+    lib_hint: "Suggerimento: usa la build browser/umd (es. dist/index.browser.js)",
+    src_hint: "Puoi trascinare più file; verranno offuscati uno per uno.",
+    select_bundle: "Seleziona bundle",
+    select_files: "Seleziona file JS",
+    initialize: "Inizializza",
+    obfuscate: "Offusca",
+    cancel: "Annulla",
+    preset_label: "Preset",
+    output_label: "Output / Risultati",
+    output_hint: "I risultati offuscati appariranno qui sotto. Potrai copiarli o scaricarli.",
+    debug_advanced: "Debug avanzato (per sviluppatori)",
+    debug_desc: "Strumenti di debug per analizzare come la libreria viene caricata nel worker",
+    debug_worker: "Debug Worker",
+    copy_debug: "Copia JSON",
+    download_debug: "Scarica JSON",
+    detection_note: "Se la detection fallisce, premi Debug e copia il JSON; puoi analizzarlo tu stesso se sei un professionista IT o avvalerti dell'opinione di un AI-LLM.",
+    lib_drop_info: "Trascina o clicca per scegliere il bundle JS (index.browser.js)",
+    src_drop_info: "Trascina file JS qui o clicca per selezionarli. Puoi anche incollare codice sotto.",
+    paste_label: "Oppure incolla qui il codice JS (sarà trattato come file singolo)",
+    paste_placeholder: "// incolla JS qui (opzionale)",
+    status_not_init: "status: non inizializzato",
+    footer: "Licensed as MIT — ready for GitHub/Codeberg",
+    modal_title: "Cos'è Obfuscatr?",
+    modal_intro: "Obfuscatr è un tool completamente standalone per offuscare codice JavaScript direttamente nel browser, senza necessità di Python, Node.js o server HTTP.",
+    modal_philosophy: "La mia filosofia: Credo fermamente che gli strumenti di sviluppo debbano essere accessibili a tutti, senza dipendenze complesse. Con un semplice file HTML e un browser moderno puoi fare tutto ciò che serve, in locale e in sicurezza.",
+    modal_advantages: "Vantaggi:",
+    modal_adv1: "✅ Completamente offline - nessuna connessione internet necessaria",
+    modal_adv2: "✅ Privacy totale - il tuo codice non lascia mai il tuo computer",
+    modal_adv3: "✅ Zero installazioni - basta aprire il file HTML",
+    modal_adv4: "✅ Cross-platform - funziona su Windows, Mac, Linux",
+    modal_adv5: "✅ Open source e personalizzabile",
+    modal_usage: "Come usarlo: Scarica la libreria javascript-obfuscator da CDN o dal repository ufficiale, caricala nell'interfaccia, e inizia subito a offuscare i tuoi file JavaScript. Tutto avviene nel browser grazie ai Web Workers.",
+    copy_btn: "Copia",
+    copied: "Copiato!"
+  },
+  en: {
+    title: "Obfuscatr",
+    step1: "1) Load library bundle",
+    step2: "2) Load JS files to obfuscate",
+    lib_hint: "Hint: use the browser/umd build (e.g. dist/index.browser.js)",
+    src_hint: "You may drag multiple files; they'll be obfuscated one-by-one.",
+    select_bundle: "Select bundle",
+    select_files: "Select JS files",
+    initialize: "Initialize",
+    obfuscate: "Obfuscate",
+    cancel: "Cancel",
+    preset_label: "Preset",
+    output_label: "Output / Results",
+    output_hint: "Obfuscated results will appear below. You can copy or download them.",
+    debug_advanced: "Advanced debug (for developers)",
+    debug_desc: "Debug tools to analyze how the library is loaded in the worker",
+    debug_worker: "Debug Worker",
+    copy_debug: "Copy JSON",
+    download_debug: "Download JSON",
+    detection_note: "If detection fails, press Debug and copy the JSON; you can analyze it yourself if you're an IT professional or rely on the opinion of an AI-LLM.",
+    lib_drop_info: "Drag or click to choose the JS bundle (index.browser.js)",
+    src_drop_info: "Drag JS files here or click to select. You can also paste code below.",
+    paste_label: "Or paste JS code here (will be treated as a single file)",
+    paste_placeholder: "// paste JS here (optional)",
+    status_not_init: "status: not initialized",
+    footer: "Licensed as MIT — ready for GitHub/Codeberg",
+    modal_title: "What is Obfuscatr?",
+    modal_intro: "Obfuscatr is a completely standalone tool to obfuscate JavaScript code directly in the browser, without requiring Python, Node.js or an HTTP server.",
+    modal_philosophy: "My philosophy: I firmly believe that development tools should be accessible to everyone, without complex dependencies. With a simple HTML file and a modern browser you can do everything you need, locally and securely.",
+    modal_advantages: "Advantages:",
+    modal_adv1: "✅ Completely offline - no internet connection required",
+    modal_adv2: "✅ Total privacy - your code never leaves your computer",
+    modal_adv3: "✅ Zero installations - just open the HTML file",
+    modal_adv4: "✅ Cross-platform - works on Windows, Mac, Linux",
+    modal_adv5: "✅ Open source and customizable",
+    modal_usage: "How to use it: Download the javascript-obfuscator library from CDN or the official repository, load it into the interface, and start obfuscating your JavaScript files immediately. Everything happens in the browser thanks to Web Workers.",
+    copy_btn: "Copy",
+    copied: "Copied!"
+  }
+};
+
+/* UI references */
+const langSel = document.getElementById('langSel');
+const titleEl = document.getElementById('title');
+
+const libFileInput = document.getElementById('libFile');
+const libPickBtn = document.getElementById('libPickBtn');
+const libDrop = document.getElementById('libDrop');
+const libInfo = document.getElementById('libInfo');
+const libName = document.getElementById('libName');
+const initBtn = document.getElementById('initBtn');
+const libStatus = document.getElementById('libStatus');
+const libPanel = document.getElementById('libPanel');
+
+const srcFilesInput = document.getElementById('srcFiles');
+const srcPickBtn = document.getElementById('srcPickBtn');
+const srcDrop = document.getElementById('srcDrop');
+const srcInfo = document.getElementById('srcInfo');
+const srcText = document.getElementById('srcText');
+const obfBtn = document.getElementById('obfBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+const filesList = document.getElementById('filesList');
+const presetSel = document.getElementById('preset');
+
+const debugToggle = document.getElementById('debugToggle');
+const debugContent = document.getElementById('debugContent');
+const debugBtn = document.getElementById('debugBtn');
+const copyDebugBtn = document.getElementById('copyDebugBtn');
+const downloadDebugBtn = document.getElementById('downloadDebugBtn');
+const debugOut = document.getElementById('debugOut');
+const statusEl = document.getElementById('status');
+const downloadLinks = document.getElementById('downloadLinks');
+
+const infoBtn = document.getElementById('infoBtn');
+const infoModal = document.getElementById('infoModal');
+const modalClose = document.getElementById('modalClose');
+
+/* Presets and state */
+const PRESETS = {
+  default: { compact: true, controlFlowFlattening: false, debugProtection: false },
+  safe:    { compact: true, controlFlowFlattening: false, deadCodeInjection: false },
+  aggressive:{ compact: true, controlFlowFlattening: true, controlFlowFlatteningThreshold: 0.75, deadCodeInjection: true }
+};
+
+let worker = null;
+let workerUrl = null;
+let libTextGlobal = null;
+let pending = new Map();
+let reqId = 0;
+let lastDebugPayload = null;
+let filesToProcess = [];
+
+/* Localization helper */
+function applyLocale(lang) {
+  const dict = I18N[lang] || I18N.it;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.textContent = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (dict[key]) el.placeholder = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    if (dict[key]) el.title = dict[key];
+  });
+}
+langSel.addEventListener('change', () => applyLocale(langSel.value));
+applyLocale(langSel.value);
+
+/* Modal handling */
+infoBtn.addEventListener('click', () => {
+  infoModal.classList.add('open');
+});
+modalClose.addEventListener('click', () => {
+  infoModal.classList.remove('open');
+});
+infoModal.addEventListener('click', (e) => {
+  if (e.target === infoModal) {
+    infoModal.classList.remove('open');
+  }
+});
+
+/* Debug toggle */
+debugToggle.addEventListener('click', () => {
+  debugToggle.classList.toggle('open');
+  debugContent.classList.toggle('open');
+});
+
+/* Utility helpers */
+function safeGetOwnNames(obj){
+  try { return Object.getOwnPropertyNames(obj||{}); } catch(e) { return []; }
+}
+function inspectObj(obj){
+  if (!obj) return { type: typeof obj, keys: [] };
+  try {
+    return {
+      type: typeof obj,
+      isFunction: typeof obj === 'function',
+      keys: safeGetOwnNames(obj).slice(0,40)
+    };
+  } catch(e) { return { type: typeof obj, keys: [] }; }
+}
+function setStatus(text) { statusEl.textContent = text; }
+
+/* Drag & Drop helpers */
+function setupDropzone(node, onFiles) {
+  node.addEventListener('dragover', (ev) => {
+    ev.preventDefault();
+    node.classList.add('dragover');
+  });
+  node.addEventListener('dragleave', (ev) => {
+    ev.preventDefault();
+    node.classList.remove('dragover');
+  });
+  node.addEventListener('drop', (ev) => {
+    ev.preventDefault();
+    node.classList.remove('dragover');
+    const dt = ev.dataTransfer;
+    if (dt && dt.files && dt.files.length) onFiles(dt.files);
+  });
+  node.addEventListener('click', () => node === libDrop ? libFileInput.click() : srcFilesInput.click());
+}
+
+/* Worker construction */
+function createWorkerFromLibText(libText) {
+  const polyfill = `
+    if (typeof window === 'undefined') { self.window = self; }
+    if (typeof global === 'undefined') { self.global = self; }
+    if (typeof module === 'undefined') { self.module = { exports: {} }; }
+    if (typeof exports === 'undefined') { self.exports = self.module.exports; }
+  `;
+
+  const workerLogic = `
+    function safeGetOwnNames(obj){
+      try { return Object.getOwnPropertyNames(obj||{}); } catch(e) { return []; }
+    }
+    function inspectObj(obj){
+      if (!obj) return { type: typeof obj, keys: [] };
+      try {
+        return {
+          type: typeof obj,
+          isFunction: typeof obj === 'function',
+          keys: safeGetOwnNames(obj).slice(0,40)
+        };
+      } catch(e) { return { type: typeof obj, keys: [] }; }
+    }
+
+    function detectJSOCandidates(){
+      const cand = [];
+      try {
+        if (typeof self !== 'undefined') {
+          if (self.JavaScriptObfuscator) cand.push({source:'self.JavaScriptObfuscator',v:self.JavaScriptObfuscator});
+          safeGetOwnNames(self).forEach(k => {
+            try {
+              if (/obfuscator|JavaScriptObfuscator|javascript/i.test(k)) {
+                cand.push({source:'self.'+k, v:self[k]});
+              }
+            } catch(e){}
+          });
+        }
+      } catch(e){}
+      try {
+        if (typeof window !== 'undefined' && window !== self) {
+          if (window.JavaScriptObfuscator) cand.push({source:'window.JavaScriptObfuscator',v:window.JavaScriptObfuscator});
+        }
+      } catch(e){}
+      try {
+        if (typeof JavaScriptObfuscator !== 'undefined') cand.push({source:'global JavaScriptObfuscator', v:JavaScriptObfuscator});
+      } catch(e){}
+      try {
+        if (typeof module !== 'undefined' && module.exports) {
+          cand.push({source:'module.exports', v: module.exports});
+          if (module.exports.default) cand.push({source:'module.exports.default', v: module.exports.default});
+          if (module.exports.JavaScriptObfuscator) cand.push({source:'module.exports.JavaScriptObfuscator', v: module.exports.JavaScriptObfuscator});
+          safeGetOwnNames(module.exports).forEach(k => {
+            try { cand.push({source:'module.exports.'+k, v: module.exports[k]}); } catch(e){}
+          });
+        }
+      } catch(e){}
+      ['JavaScriptObfuscator','javascriptObfuscator','JSObfuscator','Obfuscator'].forEach(n => {
+        try {
+          if (typeof self !== 'undefined' && self[n]) cand.push({source:'self.'+n, v:self[n]});
+          if (typeof window !== 'undefined' && window[n]) cand.push({source:'window.'+n, v:window[n]});
+        } catch(e){}
+      });
+      try {
+        safeGetOwnNames(self).slice(0,200).forEach(k => {
+          try {
+            const v = self[k];
+            if (v && (typeof v.obfuscate === 'function' || typeof v.getObfuscatedCode === 'function')) {
+              cand.push({source:'self.'+k, v:v});
+            }
+          } catch(e){}
+        });
+      } catch(e){}
+      return cand;
+    }
+
+    function pickJSO(){
+      const c = detectJSOCandidates();
+      const seen = new Set();
+      const uniq = [];
+      for (const entry of c) {
+        try {
+          if (!entry || !entry.v) continue;
+          if (seen.has(entry.v)) continue;
+          seen.add(entry.v);
+          uniq.push(entry);
+        } catch(e){}
+      }
+      for (const e of uniq) {
+        try { if (e.v && typeof e.v.obfuscate === 'function') return { jso: e.v, found:true, chosen:e.source, candidates:uniq }; } catch(e){}
+      }
+      for (const e of uniq) {
+        try { if (typeof e.v === 'function') return { jso: e.v, found:true, chosen:e.source, candidates:uniq }; } catch(e){}
+      }
+      return { jso: null, found:false, candidates:uniq };
+    }
+
+    self.onmessage = function(ev) {
+      const d = ev.data || {};
+      if (d && d.cmd === 'debug') {
+        const moduleInfo = (typeof module !== 'undefined' && module.exports) ? {
+          moduleExportNames: safeGetOwnNames(module.exports),
+          moduleExportInspect: inspectObj(module.exports),
+          moduleExportDefaultInspect: module.exports && module.exports.default ? inspectObj(module.exports.default) : null,
+        } : null;
+        const detection = (function(){
+          const c = detectJSOCandidates();
+          return c.map(x=>({source:x.source, info: inspectObj(x.v)})).slice(0,200);
+        })();
+        const info = {
+          hasSelfJSO: typeof self.JavaScriptObfuscator !== 'undefined',
+          hasWindowJSO: (typeof window !== 'undefined' && typeof window.JavaScriptObfuscator !== 'undefined'),
+          moduleInfo: moduleInfo,
+          detectionCandidates: detection,
+          selfKeysSample: safeGetOwnNames(self).slice(0,80)
+        };
+        self.postMessage({ type:'debug', info:info });
+        return;
+      }
+
+      if (d && d.cmd === 'obfuscate') {
+        const id = d.id;
+        try {
+          const detection = pickJSO();
+          const JSO = detection.jso;
+          if (!JSO) {
+            const candNames = (detection.candidates||[]).map(e=>e.source).slice(0,40).join(', ');
+            throw new Error('JavaScriptObfuscator not found. candidates: ' + candNames);
+          }
+
+          let finalOptions = d.options || {};
+          try {
+            if (JSO && typeof JSO.getOptionsByPreset === 'function' && d.presetName) {
+              const presetOpts = JSO.getOptionsByPreset(d.presetName);
+              if (presetOpts && typeof presetOpts === 'object') finalOptions = presetOpts;
+            }
+          } catch(e){}
+
+          let obfResult = null;
+          if (typeof JSO.obfuscate === 'function') {
+            obfResult = JSO.obfuscate(d.code || '', finalOptions || {});
+          } else if (typeof JSO === 'function') {
+            if (typeof JSO.obfuscate === 'function') {
+              obfResult = JSO.obfuscate(d.code || '', finalOptions || {});
+            } else {
+              let attempt = null;
+              try { attempt = JSO(d.code || '', finalOptions || {}); } catch(e) { attempt = null; }
+              if (attempt && (typeof attempt.getObfuscatedCode === 'function' || typeof attempt.obfuscatedCode !== 'undefined')) {
+                obfResult = attempt;
+              } else {
+                throw new Error('JSO is function but does not expose obfuscate or getObfuscatedCode.');
+              }
+            }
+          } else {
+            throw new Error('JSO detected but not usable. type: ' + typeof JSO);
+          }
+
+          const obf = (obfResult && typeof obfResult.getObfuscatedCode === 'function')
+            ? obfResult.getObfuscatedCode()
+            : (obfResult && obfResult.obfuscatedCode)
+              ? obfResult.obfuscatedCode
+              : String(obfResult);
+
+          self.postMessage({ type:'result', id:id, ok:true, obfuscated:obf });
+        } catch (err) {
+          self.postMessage({ type:'result', id:id, ok:false, error:String(err) });
+        }
+      }
+    };
+
+    setTimeout(() => {
+      const detection = pickJSO();
+      self.postMessage({ type:'ready', found: !!detection.found });
+    }, 200);
+  `;
+
+  const blobParts = [polyfill, '\n', libText, '\n', workerLogic];
+  const blob = new Blob(blobParts, { type: 'application/javascript' });
+  return URL.createObjectURL(blob);
+}
+
+/* Worker message handling */
+function setupWorker(w) {
+  w.onmessage = (ev) => {
+    const d = ev.data || {};
+    if (d.type === 'ready') {
+      const found = d.found ? 'true' : 'false';
+      libStatus.innerHTML = 'ready — found: ' + found + ' <span class="status-indicator ' + (d.found ? 'ok' : 'error') + '"></span>';
+      obfBtn.disabled = false;
+      debugBtn.disabled = false;
+      setStatus('worker ready');
+      if (d.found) collapseLibPanel();
+      return;
+    }
+
+    if (d.type === 'debug') {
+      lastDebugPayload = d.info;
+      debugOut.textContent = JSON.stringify(d.info, null, 2);
+      copyDebugBtn.disabled = false;
+      downloadDebugBtn.disabled = false;
+      setStatus('debug available');
+      return;
+    }
+    if (d.type === 'result') {
+      const resolver = pending.get(d.id);
+      if (resolver) {
+        pending.delete(d.id);
+        resolver(d);
+      } else {
+        debugOut.textContent = JSON.stringify(d, null, 2);
+      }
+      return;
+    }
+    console.log('worker unknown message', d);
+  };
+  w.onerror = (err) => {
+    console.error('Worker error', err);
+    libStatus.textContent = 'worker error: ' + (err && err.message ? err.message : String(err));
+    setStatus('worker error');
+    obfBtn.disabled = true;
+    debugBtn.disabled = true;
+  };
+}
+
+/* Collapse lib panel */
+function collapseLibPanel() {
+  const dict = I18N[langSel.value] || I18N.it;
+  
+  libPanel.innerHTML = '';
+  libPanel.classList.add('collapsed');
+  
+  const summary = document.createElement('div');
+  summary.innerHTML = `
+    <strong>${dict.step1} ✓</strong> <span class="status-indicator ok"></span>
+    <div class="small">${langSel.value === 'it' ? 'Libreria caricata. Clicca per ricaricare.' : 'Library loaded. Click to reload.'}</div>
+  `;
+  
+  summary.addEventListener('click', () => {
+    location.reload();
+  });
+  
+  libPanel.appendChild(summary);
+}
+
+/* UI: lib selection & drag/drop */
+libPickBtn.addEventListener('click', () => libFileInput.click());
+libFileInput.addEventListener('change', (ev) => handleLibFiles(ev.target.files));
+setupDropzone(libDrop, handleLibFiles);
+
+function handleLibFiles(fileList) {
+  if (!fileList || !fileList.length) return;
+  const f = fileList[0];
+  libName.textContent = f.name;
+  const r = new FileReader();
+  r.onload = () => {
+    libTextGlobal = String(r.result || '');
+    libStatus.textContent = 'bundle loaded (not initialized)';
+    initBtn.disabled = false;
+    initBtn.click();
+  };
+  r.onerror = () => { libStatus.textContent = 'file read error'; };
+  r.readAsText(f);
+}
+
+initBtn.addEventListener('click', () => {
+  if (!libTextGlobal) { alert('No bundle loaded'); return; }
+  try {
+    if (worker) try { worker.terminate(); } catch(e){}
+    if (workerUrl) try { URL.revokeObjectURL(workerUrl); } catch(e){}
+    workerUrl = createWorkerFromLibText(libTextGlobal);
+    worker = new Worker(workerUrl);
+    setupWorker(worker);
+    libStatus.textContent = 'initializing...';
+    initBtn.disabled = true;
+    cancelBtn.disabled = false;
+  } catch (err) {
+    console.error('create worker failed', err);
+    libStatus.textContent = 'create worker failed: ' + String(err);
+  }
+});
+
+/* UI: source files */
+srcPickBtn.addEventListener('click', () => srcFilesInput.click());
+srcFilesInput.addEventListener('change', (ev) => handleSrcFiles(ev.target.files));
+setupDropzone(srcDrop, handleSrcFiles);
+
+function handleSrcFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  files.forEach(f => {
+    const r = new FileReader();
+    r.onload = () => {
+      filesToProcess.push({ name: f.name, content: String(r.result || ''), source: 'file' });
+      renderFilesList();
+      obfBtn.disabled = !worker;
+    };
+    r.readAsText(f);
+  });
+}
+
+function renderFilesList() {
+  if (!filesToProcess.length) {
+    filesList.innerHTML = '<span class="small muted">No files selected.</span>';
+    return;
+  }
+  filesList.innerHTML = filesToProcess.map(f => `<span class="file-pill">${escapeHtml(f.name)}</span>`).join(' ');
+}
+
+function showObfuscatedResult(filename, code) {
+  const dict = I18N[langSel.value] || I18N.it;
+  const container = document.createElement('div');
+  container.className = 'result-block';
+
+  const label = document.createElement('div');
+  label.className = 'small';
+  label.textContent = 'Output: ' + filename;
+
+  const ta = document.createElement('textarea');
+  ta.className = 'result-textarea';
+  ta.value = code;
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'copy-btn';
+  copyBtn.textContent = dict.copy_btn || 'Copia';
+  copyBtn.addEventListener('mouseenter', () => ta.classList.add('highlight'));
+  copyBtn.addEventListener('mouseleave', () => ta.classList.remove('highlight'));
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(ta.value);
+      copyBtn.textContent = dict.copied || 'Copiato!';
+      ta.classList.add('highlight');
+      setTimeout(() => {
+        copyBtn.textContent = dict.copy_btn || 'Copia';
+        ta.classList.remove('highlight');
+      }, 1000);
+    } catch {
+      copyBtn.textContent = 'Error';
+    }
+  });
+
+  container.appendChild(label);
+  container.appendChild(ta);
+  container.appendChild(copyBtn);
+  downloadLinks.appendChild(container);
+}
+
+function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* Debug buttons */
+debugBtn.addEventListener('click', () => {
+  if (!worker) { alert('Worker not ready'); return; }
+  debugOut.textContent = 'requesting debug...';
+  try {
+    worker.postMessage({ cmd: 'debug' });
+    setStatus('debug requested');
+  } catch (err) {
+    console.error(err);
+    setStatus('debug send failed');
+  }
+});
+
+copyDebugBtn.addEventListener('click', async () => {
+  if (!lastDebugPayload) return;
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(lastDebugPayload, null, 2));
+    setStatus('debug copied');
+  } catch (err) {
+    try {
+      const text = JSON.stringify(lastDebugPayload, null, 2);
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove();
+      setStatus('debug copied (fallback)');
+    } catch (e) {
+      setStatus('copy failed');
+    }
+  }
+});
+
+downloadDebugBtn.addEventListener('click', () => {
+  if (!lastDebugPayload) return;
+  const blob = new Blob([JSON.stringify(lastDebugPayload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'worker-debug.json'; document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url); setStatus('debug downloaded');
+});
+
+/* Obfuscation */
+obfBtn.addEventListener('click', async () => {
+  if (!worker) { alert('Worker not ready'); return; }
+  const toProcess = [];
+  if (filesToProcess.length) {
+    toProcess.push(...filesToProcess);
+  } else if (srcText.value && srcText.value.trim()) {
+    toProcess.push({ name: 'pasted.js', content: srcText.value, source: 'paste' });
+  } else {
+    alert('No files or code to obfuscate');
+    return;
+  }
+
+  downloadLinks.innerHTML = '';
+  setStatus('running...');
+  obfBtn.disabled = true;
+  debugBtn.disabled = true;
+  const presetName = presetSel.value || 'default';
+
+  for (const f of toProcess) {
+    const pill = Array.from(document.querySelectorAll('.file-pill')).find(p => p.textContent === f.name);
+    if (pill) pill.classList.add('processing');
+
+    setStatus('processing ' + f.name + ' ');
+    const spinner = document.createElement('span');
+    spinner.className = 'loader';
+    statusEl.appendChild(spinner);
+
+    try {
+      const res = await obfuscateOnce(f.content, presetName);
+      spinner.remove();
+      if (pill) pill.classList.remove('processing');
+
+      if (res.ok) {
+        if (pill) pill.classList.add('done');
+        const outName = (f.name || 'out.js').replace(/\.js$/i, '') + '-obf.js';
+        const blob = new Blob([res.obfuscated], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.textContent = outName;
+        a.download = outName;
+        a.className = 'download-link';
+        a.style.display = 'inline-block';
+        a.style.marginRight = '8px';
+        a.style.marginBottom = '6px';
+        downloadLinks.appendChild(a);
+
+        showObfuscatedResult(outName, res.obfuscated);
+        setStatus('done ' + f.name);
+      } else {
+        if (pill) pill.classList.add('error');
+        const errLine = document.createElement('div');
+        errLine.textContent = f.name + ': ERROR: ' + (res.error || 'unknown');
+        errLine.style.color = 'crimson';
+        downloadLinks.appendChild(errLine);
+        setStatus('error ' + f.name);
+      }
+    } catch (err) {
+      if (pill) pill.classList.add('error');
+      const errLine = document.createElement('div');
+      errLine.textContent = f.name + ': exception ' + String(err);
+      errLine.style.color = 'crimson';
+      downloadLinks.appendChild(errLine);
+      setStatus('exception ' + f.name);
+    }
+
+    await new Promise(r => setTimeout(r, 120));
+  }
+
+  obfBtn.disabled = false;
+  debugBtn.disabled = false;
+  setStatus('idle');
+});
+
+function obfuscateOnce(code, presetName) {
+  return new Promise((resolve, reject) => {
+    const id = ++reqId;
+    pending.set(id, (d) => {
+      resolve(d);
+    });
+    try {
+      worker.postMessage({ cmd: 'obfuscate', id, code, options: PRESETS[presetName] || PRESETS.default, presetName });
+    } catch (err) {
+      pending.delete(id);
+      reject(err);
+    }
+  });
+}
+
+cancelBtn.addEventListener('click', () => {
+  if (worker) try { worker.terminate(); } catch(e){}
+  if (workerUrl) try { URL.revokeObjectURL(workerUrl); } catch(e){}
+  worker = null; workerUrl = null; libStatus.textContent = 'terminated'; initBtn.disabled = false; obfBtn.disabled = true; debugBtn.disabled = true;
+});
+
+window.addEventListener('beforeunload', () => {
+  if (worker) try { worker.terminate(); } catch(e){}
+  if (workerUrl) try { URL.revokeObjectURL(workerUrl); } catch(e){}
+});
+
+renderFilesList();
+setStatus('idle');
+</script>
+</body>
+</html>
